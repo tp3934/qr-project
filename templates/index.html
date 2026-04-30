@@ -1,72 +1,54 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mi Generador de QR - Desde Imagen</title>
-    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
-    <style>
-        body { font-family: sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; }
-        .section { margin-bottom: 20px; border: 1px solid #ccc; padding: 15px; border-radius: 5px; }
-        label { display: block; margin-bottom: 5px; font-weight: bold; }
-        textarea, select, button, input[type="file"] { width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
-        button { background-color: #4CAF50; color: white; border: none; cursor: pointer; font-size: 1.1em; }
-        button:hover { background-color: #45a049; }
-        #qr-result { margin-top: 20px; text-align: center; }
-        #qr-image { max-width: 300px; border: 1px solid #eee; display: none; }
-        .loading { color: blue; font-style: italic; display: none; }
-    </style>
-</head>
-<body>
+document.addEventListener('DOMContentLoaded', () => {
+    const themeToggle = document.getElementById('theme-toggle');
+    const fileInput = document.getElementById('qr-input-image');
+    const textContent = document.getElementById('text-content');
+    const btnGenerate = document.getElementById('btn-generate');
+    const qrImage = document.getElementById('qr-image');
+    let isDarkMode = false;
 
-    <h1>Mi Generador de QR Mejorado</h1>
+    themeToggle.onclick = () => {
+        isDarkMode = !isDarkMode;
+        document.body.classList.toggle('dark-mode');
+        themeToggle.innerText = isDarkMode ? '☀️ Modo Día' : '🌙 Modo Oscuro';
+    };
 
-    <div class="section">
-        <h2>Paso 1: Sube imagen con QR</h2>
-        <input type="file" id="qr-input-image" accept="image/*">
-        <p class="loading" id="scan-loading">Escaneando imagen mágicamente...</p>
-    </div>
+    fileInput.onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        document.getElementById('scan-loading').style.display = 'block';
+        
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = img.width; canvas.height = img.height;
+                ctx.drawImage(img, 0, 0);
+                const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const code = jsQR(data.data, data.width, data.height);
+                if (code) textContent.value = code.data;
+                document.getElementById('scan-loading').style.display = 'none';
+            };
+            img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+    };
 
-    <div class="section">
-        <h2>Paso 2: Configura y Genera</h2>
-        <form id="qr-generator-form">
-            <label for="contents">Contents:</label>
-            <select id="contents" name="contents">
-                <option value="Text">Text</option>
-            </select>
-
-            <label for="text-content">Text content:</label>
-            <textarea id="text-content" name="textContent" rows="6"></textarea>
-
-            <label for="barcode-size">Barcode size:</label>
-            <select id="barcode-size" name="barcodeSize">
-                <option value="Small">Small</option>
-                <option value="Medium">Medium</option>
-                <option value="Large" selected>Large</option>
-            </select>
-
-            <label for="error-correction">Error correction:</label>
-            <select id="error-correction" name="errorCorrection">
-                <option value="L">L (7% correction)</option>
-                <option value="M" selected>M (15% correction)</option>
-                <option value="Q">Q (25% correction)</option>
-                <option value="H">H (30% correction)</option>
-            </select>
-
-            <label for="character-encoding">Character encoding:</label>
-            <select id="character-encoding" name="characterEncoding">
-                <option value="UTF-8" selected>UTF-8</option>
-            </select>
-
-            <button type="submit">Generate →</button>
-        </form>
-    </div>
-
-    <div id="qr-result">
-        <h3>Resultado del nuevo QR:</h3>
-        <img id="qr-image" alt="QR Generado">
-    </div>
-
-    <script src="/static/script.js"></script>
-</body>
-</html>
+    btnGenerate.onclick = async () => {
+        if (!textContent.value) return alert("Escribe algo");
+        qrImage.style.display = 'none';
+        
+        const res = await fetch('/api/generate-qr', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ textContent: textContent.value, darkMode: isDarkMode })
+        });
+        
+        if (res.ok) {
+            const blob = await res.blob();
+            qrImage.src = URL.createObjectURL(blob);
+            qrImage.style.display = 'block';
+        }
+    };
+});
