@@ -13,8 +13,8 @@ app = Flask(__name__, template_folder='../templates', static_folder='../static')
 def index():
     return render_template('index.html')
 
-# Ruta para escanear la imagen subida
-@app.route('/scan-qr', methods=['POST'])
+# Ruta para escanear la imagen subida (CORREGIDO PARA VERCEL)
+@app.route('/api/scan-qr', methods=['POST'])
 def scan_qr():
     if 'image' not in request.files:
         return jsonify({'error': 'No se subió ninguna imagen'}), 400
@@ -23,7 +23,7 @@ def scan_qr():
     
     # Leer la imagen usando OpenCV
     filestr = file.read()
-    npimg = np.fromstring(filestr, np.uint8)
+    npimg = np.frombuffer(filestr, np.uint8) # Corregido a frombuffer
     img = cv2.imdecode(npimg, cv2.IMREAD_COLOR)
     
     # Usar el detector de QR de OpenCV
@@ -35,8 +35,8 @@ def scan_qr():
     else:
         return jsonify({'error': 'No se pudo detectar un código QR válido en la imagen.'}), 404
 
-# Ruta para generar el nuevo QR con los parámetros del formulario
-@app.route('/generate-qr', methods=['POST'])
+# Ruta para generar el nuevo QR con los parámetros del formulario (CORREGIDO PARA VERCEL)
+@app.route('/api/generate-qr', methods=['POST'])
 def generate_qr():
     data = request.json
     text_content = data.get('textContent')
@@ -78,6 +78,9 @@ def generate_qr():
     img_io.seek(0)
     
     return send_file(img_io, mimetype='image/png')
+
+# Asegurar que Vercel reconozca la app
+app = app
 
 if __name__ == '__main__':
     # Para pruebas locales
