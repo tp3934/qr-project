@@ -17,7 +17,8 @@ document.addEventListener('DOMContentLoaded', () => {
         formData.append('image', file);
 
         try {
-            const response = await fetch('/scan-qr', {
+            // CORREGIDO: Apunta a /api/scan-qr
+            const response = await fetch('/api/scan-qr', {
                 method: 'POST',
                 body: formData
             });
@@ -56,7 +57,8 @@ document.addEventListener('DOMContentLoaded', () => {
         qrResultImage.style.display = 'none'; // Ocultar imagen anterior mientras carga
 
         try {
-            const response = await fetch('/generate-qr', {
+            // CORREGIDO: Apunta a /api/generate-qr
+            const response = await fetch('/api/generate-qr', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
