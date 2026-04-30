@@ -5,44 +5,49 @@ document.addEventListener('DOMContentLoaded', () => {
     const generatorForm = document.getElementById('qr-generator-form');
     const qrResultImage = document.getElementById('qr-image');
 
-    // Manejar la subida y escaneo de imagen
-    fileInput.addEventListener('change', async (event) => {
+    // Manejar la subida y escaneo de imagen DIRECTAMENTE EN EL NAVEGADOR
+    fileInput.addEventListener('change', (event) => {
         const file = event.target.files[0];
         if (!file) return;
 
         scanLoading.style.display = 'block';
-        qrResultImage.style.display = 'none'; // Ocultar QR anterior
+        qrResultImage.style.display = 'none';
 
-        const formData = new FormData();
-        formData.append('image', file);
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = new Image();
+            img.onload = () => {
+                // Dibujar la imagen en un lienzo invisible para leer sus píxeles
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+                canvas.width = img.width;
+                canvas.height = img.height;
+                context.drawImage(img, 0, 0, img.width, img.height);
+                
+                // Extraer la información de los píxeles
+                const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+                
+                // Aquí ocurre la magia con jsQR
+                const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                    inversionAttempts: "dontInvert",
+                });
 
-        try {
-            // CORREGIDO: Apunta a /api/scan-qr
-            const response = await fetch('/api/scan-qr', {
-                method: 'POST',
-                body: formData
-            });
-
-            const result = await response.json();
-
-            if (response.ok) {
-                // Pre-cargar el texto plano en el formulario
-                textContentArea.value = result.text;
-                alert('Código QR escaneado con éxito.');
-            } else {
-                alert(`Error: ${result.error}`);
-            }
-        } catch (error) {
-            console.error('Error al escanear:', error);
-            alert('Hubo un problema al conectar con el servidor.');
-        } finally {
-            scanLoading.style.display = 'none';
-        }
+                if (code) {
+                    textContentArea.value = code.data;
+                    alert('Código QR escaneado con éxito.');
+                } else {
+                    alert('Error: No se pudo detectar un QR. Intenta recortar la imagen para que solo se vea el QR.');
+                }
+                scanLoading.style.display = 'none';
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
     });
 
-    // Manejar la generación del nuevo QR
+    // Manejar la generación del nuevo QR (Esto sigue enviándose a Python)
     generatorForm.addEventListener('submit', async (event) => {
-        event.preventDefault(); // Evitar recarga de página estándar
+        event.preventDefault(); 
 
         const textContent = textContentArea.value;
         if (!textContent) {
@@ -54,10 +59,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const jsonData = {};
         formData.forEach((value, key) => jsonData[key] = value);
 
-        qrResultImage.style.display = 'none'; // Ocultar imagen anterior mientras carga
+        qrResultImage.style.display = 'none'; 
 
         try {
-            // CORREGIDO: Apunta a /api/generate-qr
             const response = await fetch('/api/generate-qr', {
                 method: 'POST',
                 headers: {
@@ -67,11 +71,10 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             if (response.ok) {
-                // Recibir la imagen como un Blob (binary large object)
                 const blob = await response.blob();
                 const imageUrl = URL.createObjectURL(blob);
                 qrResultImage.src = imageUrl;
-                qrResultImage.style.display = 'inline-block'; // Mostrar la nueva imagen
+                qrResultImage.style.display = 'inline-block'; 
             } else {
                 const result = await response.json();
                 alert(`Error al generar: ${result.error}`);
