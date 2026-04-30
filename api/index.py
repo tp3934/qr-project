@@ -1,87 +1,59 @@
 import os
 import io
-import cv2
-import numpy as np
 from flask import Flask, render_template, request, jsonify, send_file
 import qrcode
 from PIL import Image
+import cairosvg  # Necesaria para leer los SVG que subiste
 
 app = Flask(__name__, template_folder='../templates', static_folder='../static')
 
-# Ruta principal: Sirve la página web
 @app.route('/')
 def index():
     return render_template('index.html')
 
-# Ruta para escanear la imagen subida (CORREGIDO PARA VERCEL)
-@app.route('/api/scan-qr', methods=['POST'])
-def scan_qr():
-    if 'image' not in request.files:
-        return jsonify({'error': 'No se subió ninguna imagen'}), 400
-    
-    file = request.files['image']
-    
-    # Leer la imagen usando OpenCV
-    filestr = file.read()
-    npimg = np.frombuffer(filestr, np.uint8) # Corregido a frombuffer
-    img = cv2.imdecode(npimg, cv2.IMREAD_COLOR)
-    
-    # Usar el detector de QR de OpenCV
-    detector = cv2.QRCodeDetector()
-    data, bbox, straight_qrcode = detector.detectAndDecode(img)
-    
-    if bbox is not None and data:
-        return jsonify({'text': data})
-    else:
-        return jsonify({'error': 'No se pudo detectar un código QR válido en la imagen.'}), 404
-
-# Ruta para generar el nuevo QR con los parámetros del formulario (CORREGIDO PARA VERCEL)
 @app.route('/api/generate-qr', methods=['POST'])
 def generate_qr():
     data = request.json
     text_content = data.get('textContent')
-    barcode_size_str = data.get('barcodeSize')
-    error_correction_str = data.get('errorCorrection')
-    character_encoding = data.get('characterEncoding') # En python 'qrcode' asume UTF-8 por defecto
-
+    # Recibimos si el usuario prefiere el icono para modo oscuro o claro
+    use_dark_icon = data.get('darkMode', False)
+    
     if not text_content:
-        return jsonify({'error': 'Falta el contenido de texto'}), 400
+        return jsonify({'error': 'Falta el contenido'}), 400
 
-    # Mapear el tamaño del código de barras a 'box_size' de qrcode
-    size_map = {'Small': 5, 'Medium': 10, 'Large': 15}
-    box_size = size_map.get(barcode_size_str, 10)
-
-    # Mapear la corrección de errores
-    ec_map = {
-        'L': qrcode.constants.ERROR_CORRECT_L,
-        'M': qrcode.constants.ERROR_CORRECT_M,
-        'Q': qrcode.constants.ERROR_CORRECT_Q,
-        'H': qrcode.constants.ERROR_CORRECT_H
-    }
-    error_correction = ec_map.get(error_correction_str, qrcode.constants.ERROR_CORRECT_M)
-
-    # Crear el código QR
     qr = qrcode.QRCode(
         version=1,
-        error_correction=error_correction,
-        box_size=box_size,
+        error_correction=qrcode.constants.ERROR_CORRECT_H,
+        box_size=10,
         border=4,
     )
-    qr.add_data(text_content.encode('utf-8')) # Asegurar UTF-8
+    qr.add_data(text_content.encode('utf-8'))
     qr.make(fit=True)
 
-    img = qr.make_image(fill_color="black", back_color="white")
+    qr_img = qr.make_image(fill_color="black", back_color="white").convert('RGB')
     
-    # Guardar en memoria para enviarlo
+    try:
+        # Elegimos el icono según la preferencia (SVG)
+        icon_name = 'iconoblack.svg' if use_dark_icon else 'iconowhite.svg'
+        logo_path = os.path.join(app.static_folder, icon_name)
+        
+        if os.path.exists(logo_path):
+            # Convertimos el SVG a PNG en memoria para que Pillow lo entienda
+            logo_png = cairosvg.svg2png(url=logo_path, output_width=200, output_height=200)
+            logo = Image.open(io.BytesIO(logo_png))
+            
+            qr_width, qr_height = qr_img.size
+            logo_size = int(qr_width / 5)
+            logo = logo.resize((logo_size, logo_size), Image.Resampling.LANCZOS)
+            
+            pos = ((qr_width - logo_size) // 2, (qr_height - logo_size) // 2)
+            qr_img.paste(logo, pos, mask=logo if logo.mode == 'RGBA' else None)
+    except Exception as e:
+        print(f"Error con el logo: {e}")
+
     img_io = io.BytesIO()
-    img.save(img_io, 'PNG')
+    qr_img.save(img_io, 'PNG')
     img_io.seek(0)
-    
     return send_file(img_io, mimetype='image/png')
 
-# Asegurar que Vercel reconozca la app
 app = app
-
-if __name__ == '__main__':
-    # Para pruebas locales
-    app.run(debug=True, host='0.0.0.0', port=5000)
