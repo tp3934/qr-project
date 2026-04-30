@@ -1,63 +1,73 @@
-import os
-import io
-from flask import Flask, render_template, request, jsonify, send_file
-import qrcode
-from PIL import Image
-
-app = Flask(__name__, template_folder='../templates', static_folder='../static')
-
-@app.route('/')
-def index():
-    return render_template('index.html')
-
-@app.route('/api/generate-qr', methods=['POST'])
-def generate_qr():
-    try:
-        data = request.json
-        text_content = data.get('textContent')
-        use_dark_icon = data.get('darkMode', False)
-        
-        if not text_content:
-            return jsonify({'error': 'Falta el contenido'}), 400
-
-        # Generar QR con nivel de corrección H (Alto) para soportar el logo
-        qr = qrcode.QRCode(
-            version=None,
-            error_correction=qrcode.constants.ERROR_CORRECT_H,
-            box_size=10,
-            border=4,
-        )
-        qr.add_data(text_content)
-        qr.make(fit=True)
-
-        qr_img = qr.make_image(fill_color="black", back_color="white").convert('RGB')
-        
-        # Lógica del Logo
-        icon_name = 'iconoblack.svg' if use_dark_icon else 'iconowhite.svg'
-        logo_path = os.path.join(app.static_folder, icon_name)
-        
-        # Intentar cargar el logo (solo si PIL lo soporta directamente, como PNG/JPG)
-        # Nota: Vercel tiene problemas nativos con SVG. Si falla, genera el QR sin logo.
-        if os.path.exists(logo_path):
-            try:
-                logo = Image.open(logo_path)
-                logo = logo.convert("RGBA")
-                
-                qr_width, qr_height = qr_img.size
-                logo_size = int(qr_width / 5)
-                logo = logo.resize((logo_size, logo_size), Image.Resampling.LANCZOS)
-                
-                pos = ((qr_width - logo_size) // 2, (qr_height - logo_size) // 2)
-                qr_img.paste(logo, pos, mask=logo)
-            except:
-                pass # Si el formato no es compatible, envía el QR limpio
-
-        img_io = io.BytesIO()
-        qr_img.save(img_io, 'PNG')
-        img_io.seek(0)
-        return send_file(img_io, mimetype='image/png')
+document.addEventListener('DOMContentLoaded', () => {
+    const themeBtn = document.getElementById('theme-toggle');
+    const qrInput = document.getElementById('qr-input');
+    const textContent = document.getElementById('text-content');
+    const generateBtn = document.getElementById('generate-btn');
+    const qrImage = document.getElementById('qr-image');
+    const scanLoading = document.getElementById('scan-loading');
     
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    let isDarkMode = false;
 
-app = app
+    // Alternar modo oscuro
+    themeBtn.onclick = () => {
+        isDarkMode = !isDarkMode;
+        document.body.classList.toggle('dark-mode');
+        themeBtn.innerText = isDarkMode ? '☀️ Modo Día' : '🌙 Modo Oscuro';
+    };
+
+    // Escáner local (Rápido y privado)
+    qrInput.onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        scanLoading.style.display = 'block';
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = img.width; canvas.height = img.height;
+                ctx.drawImage(img, 0, 0);
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const code = jsQR(imageData.data, imageData.width, imageData.height);
+                
+                if (code) {
+                    textContent.value = code.data;
+                } else {
+                    alert("No se encontró un QR. Intenta con otra foto.");
+                }
+                scanLoading.style.display = 'none';
+            };
+            img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+    };
+
+    // Generar QR llamando a la API de Python
+    generateBtn.onclick = async () => {
+        if (!textContent.value) return alert("Escribe algo primero.");
+        
+        qrImage.style.display = 'none';
+        try {
+            const res = await fetch('/api/generate-qr', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    textContent: textContent.value,
+                    darkMode: isDarkMode
+                })
+            });
+
+            if (res.ok) {
+                const blob = await res.blob();
+                qrImage.src = URL.createObjectURL(blob);
+                qrImage.style.display = 'block';
+            } else {
+                alert("Error al generar el QR. Revisa los logs de Vercel.");
+            }
+        } catch (err) {
+            alert("Error de conexión con el servidor.");
+        }
+    };
+});
