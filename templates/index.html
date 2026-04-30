@@ -3,39 +3,46 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QR Pro - Samuel Cuba</title>
+    <title>Mi Generador de QR Mejorado</title>
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
     <style>
-        :root { --bg: #ffffff; --text: #333; --card: #f8f9fa; --accent: #25d366; }
-        body.dark-mode { --bg: #121212; --text: #e0e0e0; --card: #1e1e1e; --accent: #25d366; }
-        
-        body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; transition: 0.3s; padding: 20px; max-width: 500px; margin: 0 auto; }
-        .card { background: var(--card); padding: 20px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        h1 { text-align: center; color: var(--accent); }
-        textarea { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #444; background: var(--bg); color: var(--text); resize: none; box-sizing: border-box; }
-        button { width: 100%; padding: 12px; background: var(--accent); color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 10px; }
-        .theme-btn { position: fixed; top: 10px; right: 10px; padding: 8px 12px; border-radius: 20px; border: 1px solid var(--accent); background: none; color: var(--accent); cursor: pointer; }
-        #qr-image { width: 100%; margin-top: 20px; border-radius: 10px; display: none; }
-        .loading { text-align: center; color: var(--accent); display: none; margin: 10px 0; }
+        /* Tu diseño original */
+        body { font-family: sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; transition: 0.3s; }
+        body.dark-mode { background-color: #1a1a1a; color: white; }
+        .section { margin-bottom: 20px; border: 1px solid #ccc; padding: 15px; border-radius: 5px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        textarea, select, button, input[type="file"] { width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
+        button { background-color: #4CAF50; color: white; border: none; cursor: pointer; font-size: 1.1em; }
+        #qr-image { max-width: 300px; border: 1px solid #eee; display: none; margin-top: 20px; }
+        .theme-btn { float: right; padding: 5px 10px; cursor: pointer; }
     </style>
 </head>
 <body>
     <button class="theme-btn" id="theme-toggle">🌙 Modo Oscuro</button>
-    <h1>QR Pro Gen</h1>
+    <h1>Mi Generador de QR Mejorado</h1>
 
-    <div class="card">
-        <label><b>Paso 1:</b> Escanear QR (Xiaomi Style)</label>
-        <input type="file" id="qr-input" accept="image/*" style="margin-top:10px; width: 100%;">
-        <div class="loading" id="scan-loading">Procesando imagen...</div>
+    <div class="section">
+        <h2>Paso 1: Sube imagen con QR</h2>
+        <input type="file" id="qr-input-image" accept="image/*">
     </div>
 
-    <div class="card">
-        <label><b>Paso 2:</b> Generar con mi Logo</label>
-        <textarea id="text-content" rows="4" placeholder="Escribe o pega el contenido aquí..." style="margin-top:10px;"></textarea>
-        <button id="generate-btn">Generar QR Personalizado</button>
+    <div class="section">
+        <h2>Paso 2: Configura y Genera</h2>
+        <form id="qr-generator-form">
+            <label>Text content:</label>
+            <textarea id="text-content" name="textContent" rows="6"></textarea>
+
+            <label>Barcode size:</label>
+            <select name="barcodeSize"><option value="Large">Large</option></select>
+
+            <label>Error correction:</label>
+            <select name="errorCorrection"><option value="H">H (30% correction)</option></select>
+
+            <button type="submit">Generate →</button>
+        </form>
     </div>
 
-    <div style="text-align: center;">
+    <div id="qr-result" style="text-align: center;">
         <img id="qr-image" alt="QR Generado">
     </div>
 
